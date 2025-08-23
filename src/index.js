@@ -4,10 +4,23 @@ import { DB_NAME } from "./constants.js";
 const app = express();
 import connectDB from "./db/index.js";
 //require("dotenv").config({ path: "./.env" });    //either use required or below import ur choice
-import dotenv from "dotenv";
+import dotenv from "dotenv"; //after this also do changings in package.joson in scripts
 
 dotenv.config({ path: "./.env" });
-connectDB();
+connectDB()
+  .then(() => {
+    app.on("error", (err) => {
+      console.error("Express error:", err);
+      throw err;
+    });
+
+    app.listen(process.env.PORT || 8000, () => {
+      console.log(`Server is running on port ${process.env.PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.log("MONGODB connection failed !!!", err);
+  });
 // **** first methof of connecting database ****
 
 /*(async () => {
