@@ -33,7 +33,7 @@ const uploadOnCloudinary = async (localFilePath) => {
 
 export { uploadOnCloudinary };
 
-cloudinary.v2.uploader.upload(
+/*cloudinary.v2.uploader.upload(
   "CLOUDINARY_URL=cloudinary://<your_api_key>:<your_api_secret>@chaiaurcode-asma",
   {
     public_id: "sample_id",
@@ -41,4 +41,4 @@ cloudinary.v2.uploader.upload(
   function (error, result) {
     console.log(result, error);
   }
-);
+);*/

@@ -1,8 +1,8 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiErrorHandler } from "../utils/ApiErrorHandler.js";
+import { ApiError } from "../utils/ApiErrorHandler.js";
 import { User } from "../models/user.model.js";
-import { uploadOnCloudinary } from "../utils.cloudinary.js";
-import { ApiResponse } from "../utils.ApiResponse.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 //1) get user details from frontend (if no frontend then get data from postman)
 //2) validation (no empty field)
 //(3) check if user already exists (check by username , email)
@@ -31,7 +31,7 @@ const registerUser = asyncHandler(async (req, res) => {
   if (
     [fullname, email, username, password].some((field) => field?.trim() === "")
   ) {
-    throw new ApiErrorHandler(400, "All fields are required");
+    throw new ApiError(400, "All fields are required");
   }
 
   //(3)
@@ -41,10 +41,7 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (existedUser) {
-    throw new ApiErrorHandler(
-      409,
-      "User with email or username already exists"
-    );
+    throw new ApiError(409, "User with email or username already exists");
   }
 
   //(4)
@@ -56,7 +53,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   if (!avatarLocalPath) {
     //not check coverImage bcz in models we sais Avatar requied coverImage not
-    throw new ApiErrorHandler(400, "Avatar file is required.");
+    throw new ApiError(400, "Avatar file is required.");
   }
 
   //(5)
@@ -64,7 +61,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) {
-    throw new ApiErrorHandler(400, "Avatar file is required.");
+    throw new ApiError(400, "Avatar file is required.");
   }
 
   //(6)
@@ -87,10 +84,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // (8)
   if (!createdUser) {
-    throw new ApiErrorHandler(
-      500,
-      "Something went wrong while registering the user."
-    );
+    throw new ApiError(500, "Something went wrong while registering the user.");
   }
 
   //(9)
