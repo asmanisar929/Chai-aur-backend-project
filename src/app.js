@@ -19,4 +19,17 @@ app.use(
 app.use(express.urlencoded({ extended: true })); //to parse urlencoded data from request body
 app.use(express.static("public")); //to serve static files from public folder
 app.use(cookieParser()); //to parse cookies from request headers
+
+//import routes
+
+import userRouter from "./routes/user.routes.js";
+
+app.get("/", (req, res) => {
+  res.send("API is running...");
+});
+
+//routes declaration
+app.use("/api/v1/users", userRouter);
+//http://localhost:3000/api/v1/users/register   () when req comes of /api/v1/users it works as middleware and pass work to userRouter then userRouter go into /routes/user.routes.js then /register req comes then registerUser fn calls.)
+
 export { app };
