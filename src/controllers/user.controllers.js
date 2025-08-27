@@ -20,7 +20,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 const registerUser = asyncHandler(async (req, res) => {
   //express gives by default body access req.body
   const { fullname, email, username, password } = req.body; //if data comes from form or from json yeh mil jaiga req.body main. agr data url si arha usko baad main dekhain gai
-  console.log("email : ", email);
+  //console.log("email : ", email);
 
   //(2)
 
@@ -36,7 +36,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //(3)
 
-  const existedUser = User.findOne({
+  const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
 
@@ -44,16 +44,27 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, "User with email or username already exists");
   }
 
+  console.log(req.files); // show on terminal what inside files (avatar , coverImage)
   //(4)
 
   //multer gives by default files access req.files
 
   const avatarLocalPath = req.files?.avatar[0]?.path; //[0] means we use 1st property and path here multer upload files on tem local storage and give path here we get that path
-  const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  //const coverImageLocalPath = req.files?.coverImage[0]?.path;
+  let coverImageLocalPath;
 
   if (!avatarLocalPath) {
     //not check coverImage bcz in models we sais Avatar requied coverImage not
     throw new ApiError(400, "Avatar file is required.");
+  }
+
+  if (
+    //do this bcz if no cover image then erfror occurs in this (const coverImageLocalPath = req.files?.coverImage[0]?.path;) bcz in this we dont do if condition check as in avatarLocalPath .bcz coverImage not required so did if condition like this
+    req.files &&
+    Array.isArray(req.files.coverImage) &&
+    req.files.coverImage.length > 0
+  ) {
+    coverImageLocalPath = req.files?.coverImage[0]?.path;
   }
 
   //(5)
@@ -77,7 +88,7 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   //(7)
-  const createdUser = User.findById(user._id).select(
+  const createdUser = await User.findById(user._id).select(
     //check user create in db or not if created then seelect what we remove
     "-password -refreshToken"
   );
