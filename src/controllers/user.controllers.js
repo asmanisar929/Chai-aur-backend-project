@@ -13,6 +13,24 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 //(8) check for user creation
 //(9) return response
 
+const generateAccessAndRefereshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken; //save refreshToken in database
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while generating referesh and access token"
+    );
+  }
+};
+
 //-------------------------------------------------------------------------------------
 
 //(1)
@@ -104,4 +122,114 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User registered successfully")); // to return response in structured and organized manner and for this import ApiResponse from utility
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  // (1) req body -> data
+  // (2)  username or email
+  // (3) find the user
+  // (4) password check
+  // (5) access and referesh token
+  // (6) send cookie
+  // (7) return response
+
+  //------------------------------------------------------------------
+
+  //(1)
+  const { email, username, password } = req.body;
+  console.log(email);
+
+  //(2)
+
+  if (!username && !email) {
+    throw new ApiError(400, "username or email is required");
+  }
+
+  // Here is an alternative of above code based on logic discussed in video:
+  // if (!(username || email)) {
+  //     throw new ApiError(400, "username or email is required")
+
+  // }
+
+  //(3)
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User does not exist");
+  }
+
+  //(4)
+
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(401, "Invalid user credentials");
+  }
+
+  //(5)
+
+  const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(
+    //call fn generaterAccessAndRefreshToken
+    user._id
+  );
+
+  const loggedInUser = await User.findById(user._id).select(
+    //optional step that not send password and refreshToken when user LoggedIn
+    "-password -refreshToken"
+  );
+
+  //(6)         //accessToken And RefreshToken bhej rhay through cookies use secure cookies
+  const options = {
+    //options is an object which is modifiable throgh frontend but when we set httpOnly and secure true then it can modifiable only through server
+    httpOnly: true,
+    secure: true,
+  };
+
+  // (7)
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse( //json response
+        200, //statuscode
+        {
+          //this object is message
+          user: loggedInUser,
+          accessToken,
+          refreshToken, //cookies main access refresh token bhej diye yahan dobara bhej rhay kai agr user khud sai cookies save krwana chahta kisi local storage pr
+        },
+        "User logged In Successfully"
+      )
+    );
+});
+
+const logoutUser = asyncHandler(async (req, res) => {
+  //to logout user we make auth middleware without this we have no info about user so we unable to logged out the user
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined, //update refreshToken field
+      },
+    },
+    {
+      new: true, //return main jo response milay ga usmain updated new value milay gi
+    }
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  //clear cookies
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged Out"));
+});
+
+export { registerUser, loginUser, logoutUser };
