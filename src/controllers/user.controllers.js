@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiErrorHandler.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken";
 //1) get user details from frontend (if no frontend then get data from postman)
 //2) validation (no empty field)
 //(3) check if user already exists (check by username , email)
@@ -122,6 +123,26 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User registered successfully")); // to return response in structured and organized manner and for this import ApiResponse from utility
 });
 
+/* -------------------- ACCESS TOKEN REFRESH TOKEN -------------------------------
+
+ Example Flow (Step by Step)
+Login:
+1) User logs in with email & password.
+2) Server verifies and sends Access Token (short-lived) + Refresh Token (long-lived).
+3) For each API request, frontend sends access token in Authorization header.
+4) After 15 minutes, the access token expires.
+5) If user makes another request, they get 401 Unauthorized.
+6) Frontend silently sends refresh token to /auth/refresh.
+7) Backend verifies refresh token → issues new access token.
+8) User doesn’t need to log in again.
+
+Logout:
+1) On logout, both tokens are deleted from storage.
+
+✅ In simple words:
+Access token = short-lived ticket to enter the cinema hall 🎟️
+Refresh token = membership card that lets you get a new ticket without standing in line again.*/
+
 const loginUser = asyncHandler(async (req, res) => {
   // (1) req body -> data
   // (2)  username or email
@@ -232,4 +253,55 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged Out"));
 });
 
-export { registerUser, loginUser, logoutUser };
+//if access token expired then frontend send refreshtoken as refreshtoken present in backend then it verify refreshtoken and issue new access token
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "unauthorized request");
+  }
+
+  try {
+    const decodedToken = jwt.verify(
+      //jwt.verify used to get decoded information
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const user = await User.findById(decodedToken?._id);
+
+    if (!user) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      //backend verify that incomingRefreshToken which frontend send matches with refreshToken whuch is saved in database
+      throw new ApiError(401, "Refresh token is expired or used");
+    }
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, newRefreshToken } =
+      await generateAccessAndRefereshTokens(user._id);
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          { accessToken, refreshToken: newRefreshToken },
+          "Access token refreshed"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
+});
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
